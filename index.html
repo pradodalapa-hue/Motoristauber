@@ -197,7 +197,7 @@
         const db = firebase.database();
         const LOJA_ID = 'uber_2026';
 
-        let map = null, markerMotoboy = null, watchId = null, emRota = false;
+        let map = null, markerCliente = null, markerMotoboy = null, watchId = null, emRota = false;
         let idPedidoAtual = "NENHUM";
         let producaoPendentes = {}, corridaPopupAtiva = null;
         let timerPopupInterval = null;
@@ -207,6 +207,12 @@
         let tempoEsperaSegundos = 240; // 4 minutos (240 segundos)
         let valorBaseCorrida = 0.00;
         let taxaEsperaAplicada = false;
+
+        const iconeCliente = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
 
         const iconeMotoboy = L.icon({
             iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
@@ -244,6 +250,17 @@
                 }
             } catch (e) {}
             return [-3.3833, -57.7167];
+        }
+
+        async function geocodificarLocalRigoroso(enderecoTexto, cidadeAtual, ufAtual) {
+            if (!enderecoTexto) return null;
+            try {
+                const query = encodeURIComponent(`${enderecoTexto}, ${cidadeAtual}, ${ufAtual}, Brasil`);
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+                const json = await res.json();
+                if (json && json.length > 0) return { lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon) };
+            } catch(e) {}
+            return null;
         }
 
         async function verificarDriverSalvo() {
@@ -400,7 +417,7 @@
             }
         }
 
-        function aceitarCorridaDireta(id) {
+        async function aceitarCorridaDireta(id) {
             const item = producaoPendentes[id];
             if (!item) return;
 
@@ -416,6 +433,27 @@
             // Exibe o botão CHEGUEI NO LOCAL
             document.getElementById('btnCheguei').classList.remove('hidden');
 
+            // Lógica de geocodificação ou uso de coordenadas do destino do cliente para exibir o marcador vermelho no mapa do motorista
+            let latDest = item.latDestino;
+            let lngDest = item.lngDestino;
+
+            if (!latDest || !lngDest) {
+                const coordsObj = await geocodificarLocalRigoroso(item.destino, motoristaLogado.cidade, motoristaLogado.estado);
+                if (coordsObj) {
+                    latDest = coordsObj.lat;
+                    lngDest = coordsObj.lng;
+                } else {
+                    const coordsCentro = await obterCoordenadasCidade(motoristaLogado.estado, motoristaLogado.cidade);
+                    latDest = coordsCentro[0];
+                    lngDest = coordsCentro[1];
+                }
+            }
+
+            if (markerCliente) map.removeLayer(markerCliente);
+            markerCliente = L.marker([latDest, lngDest], { icon: iconeCliente }).addTo(map)
+                .bindPopup(`<b>DESTINO PASSAGEIRO:</b><br>${item.passageiro_nome || 'Cliente'}<br>${item.destino}`).openPopup();
+            map.setView([latDest, lngDest], 16);
+
             db.ref(`lojas/${LOJA_ID}/rastreio_ativo/${id}`).set({
                 id: id,
                 status: "em_rota",
@@ -426,12 +464,14 @@
                 motorista_placa: motoristaLogado.placa,
                 tempo_estimado: "3",
                 destino: item.destino,
+                latDestino: latDest,
+                lngDestino: lngDest,
                 valor: valorBaseCorrida.toFixed(2),
                 timestamp: Date.now()
             });
 
             db.ref(`lojas/${LOJA_ID}/producao_pendente/${id}`).remove();
-            alert("CORRIDA ACEITA! Transmitindo sua localização em tempo real para o passageiro.");
+            alert("CORRIDA ACEITA! Localização do passageiro carregada no mapa e transmitindo sua posição.");
 
             // Ativa o compartilhamento de localização via GPS automaticamente
             if (!emRota) {
@@ -524,6 +564,7 @@
             db.ref(`lojas/${LOJA_ID}/rastreio_ativo/${idPedidoAtual}`).remove();
             db.ref(`lojas/${LOJA_ID}/motoboy_status`).set({ online: false });
 
+            if (markerCliente) { map.removeLayer(markerCliente); markerCliente = null; }
             if (watchId) navigator.geolocation.clearWatch(watchId);
             emRota = false;
             idPedidoAtual = "NENHUM";
