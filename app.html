@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DONY BURGUER'S - SISTEMA SOBERANO JDP (MOTOBOY)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    
+    <!-- Leaflet Engine -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --cyan: #06b6d4;
+            --gold: #fde047;
+            --slate: #020617;
+            --card: #0f172a;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--slate);
+        }
+        .terminal-text {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .text-gold { color: var(--gold) !important; }
+        .border-gold { border-color: var(--gold) !important; }
+        .bg-gold { background-color: var(--gold) !important; }
+        
+        #map {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: var(--slate);
+        }
+
+        .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(80%); }
+
+        #painelLateral {
+            transition: transform 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="relative text-gold">
+
+    <!-- MODAL DE LOGIN / CADASTRO DE MOTOBOY -->
+    <div id="modalAuth" class="fixed inset-0 bg-[#020617]/98 backdrop-blur-2xl z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-[#0f172a] border-2 border-cyan-500 rounded-2xl p-6 w-full max-w-md shadow-[0_0_30px_rgba(6,182,212,0.3)] my-auto">
+            <div class="text-center mb-6">
+                <i class="fas fa-motorcycle text-cyan-400 text-4xl mb-2"></i>
+                <h2 class="terminal-text text-cyan-400 text-lg font-black tracking-widest uppercase">MOTOBOY SUPREME JDP</h2>
+                <p class="text-zinc-400 text-xs mt-1">Acesse sua conta ou cadastre-se na frota</p>
+            </div>
+
+            <div class="flex mb-4 border-b border-zinc-800">
+                <button id="abaLoginBtn" onclick="mudarAbaAuth('login')" class="flex-1 py-2 text-xs font-black terminal-text text-cyan-400 border-b-2 border-cyan-500 uppercase">Entrar</button>
+                <button id="abaCadastroBtn" onclick="mudarAbaAuth('cadastro')" class="flex-1 py-2 text-xs font-black terminal-text text-zinc-500 hover:text-white uppercase">Cadastrar</button>
+            </div>
+
+            <!-- FORMULÁRIO DE LOGIN -->
+            <form id="formLogin" onsubmit="realizarLogin(event)" class="space-y-3">
+                <div>
+                    <label class="text-[10px] terminal-text text-zinc-400 uppercase">Telefone / WhatsApp</label>
+                    <input type="tel" id="loginTelefone" required class="w-full p-3 bg-[#020617] border border-cyan-500/50 rounded-lg text-white font-bold text-xs focus:outline-none focus:border-cyan-400" placeholder="Ex: 92991234567">
+                </div>
+                <div>
+                    <label class="text-[10px] terminal-text text-zinc-400 uppercase">Senha</label>
+                    <input type="password" id="loginSenha" required class="w-full p-3 bg-[#020617] border border-cyan-500/50 rounded-lg text-white font-bold text-xs focus:outline-none focus:border-cyan-400" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black py-3 rounded-xl uppercase terminal-text text-xs shadow-lg transition-all mt-4">ACESSAR SISTEMA</button>
+            </form>
+
+            <!-- FORMULÁRIO DE CADASTRO COM CIDADE -->
+            <form id="formCadastro" onsubmit="realizarCadastro(event)" class="space-y-3 hidden">
+                <div>
+                    <label class="text-[10px] terminal-text text-zinc-400 uppercase">Nome Completo do Motoboy</label>
+                    <input type="text" id="cadNome" required class="w-full p-3 bg-[#020617] border border-cyan-500/50 rounded-lg text-white font-bold text-xs uppercase focus:outline-none focus:border-cyan-400" placeholder="Ex: MARCOS SILVA">
+                </div>
+                <div>
+                    <label class="text-[10px] terminal-text text-zinc-400 uppercase">Telefone / WhatsApp</label>
+                    <input type="tel" id="cadTelefone" required class="w-full p-3 bg-[#020617] border border-cyan-500/50 rounded-lg text-white font-bold text-xs focus:outline-none focus:border-cyan-400" placeholder="Ex: 92991234567">
+                </div>
+                <div>
+                    <label class="text-[10px] terminal-text text-zinc-400 uppercase">Cidade de Atuação (Ex: Manaus, Maués)</label>
+                    <input type="text" id="cadCidade" required class="w-full p-3 bg-[#020617] border border-cyan-500/50 rounded-lg text-white font-bold text-xs uppercase focus:outline-none focus:border-cyan-400" placeholder="Ex: MANAUS">
+                </div>
+                <div>
+                    <label class="text-[10px] terminal-text text-zinc-400 uppercase">Criar Senha</label>
+                    <input type="password" id="cadSenha" required class="w-full p-3 bg-[#020617] border border-cyan-500/50 rounded-lg text-white font-bold text-xs focus:outline-none focus:border-cyan-400" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-gold hover:bg-yellow-400 text-black font-black py-3 rounded-xl uppercase terminal-text text-xs shadow-lg transition-all mt-4">CRIAR CONTA NA FROTA</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAPA EM TELA CHEIA -->
+    <div id="map"></div>
+
+    <!-- BARRA SUPERIOR -->
+    <div class="absolute top-4 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
+        <button onclick="alternarPainelCorridas()" class="pointer-events-auto bg-[#020617]/90 border-2 border-cyan-500 hover:border-gold text-cyan-400 hover:text-gold px-4 py-3 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center gap-2 terminal-text text-xs font-black uppercase backdrop-blur-md transition-all">
+            <i class="fas fa-list-ul text-sm"></i> CORRIDAS PRONTAS
+            <span id="badgeQtd" class="bg-cyan-500 text-black px-2 py-0.5 rounded-full text-[10px] font-black ml-1">0</span>
+        </button>
+
+        <div id="cardMotoboyLogado" class="pointer-events-auto bg-[#020617]/90 border border-cyan-500/50 px-3 py-2 rounded-xl backdrop-blur-md flex items-center gap-2 text-xs">
+            <div class="text-right">
+                <p id="labelNomeMotoboy" class="font-black text-white uppercase text-[11px] truncate max-w-[120px]">---</p>
+                <p id="labelCidadeMotoboy" class="text-[9px] text-cyan-400 terminal-text font-bold uppercase">CIDADE: ---</p>
+            </div>
+            <button onclick="deslogarMotoboy()" class="text-zinc-400 hover:text-red-400 p-1" title="Sair"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </div>
+
+    <!-- PAINEL LATERAL FLUTUANTE (GAVETA DA PORTA A) -->
+    <div id="painelLateral" class="absolute top-0 left-0 h-full w-full md:w-[380px] bg-[#020617]/95 backdrop-blur-xl border-r-2 border-cyan-500 flex flex-col z-30 transform -translate-x-full shadow-2xl">
+        <div class="p-4 border-b border-zinc-800 bg-[#070d19] flex justify-between items-center">
+            <h2 class="terminal-text text-cyan-400 font-black text-xs tracking-widest flex items-center gap-2">
+                <i class="fas fa-satellite-dish animate-pulse"></i> FILTRADO PARA SUA CIDADE
+            </h2>
+            <div class="flex items-center gap-2">
+                <button onclick="limparTodosFantasmas()" class="text-red-500 hover:text-red-400 text-xs font-black px-2 py-1 border border-red-500/40 rounded bg-red-950/30 uppercase" title="Apagar todos"><i class="fas fa-trash-alt"></i> LIMPAR</button>
+                <button onclick="alternarPainelCorridas()" class="text-zinc-400 hover:text-white text-lg p-1"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-3 space-y-3" id="listaFilaGeral">
+            <p class="text-center text-zinc-600 text-xs py-10">Aguardando liberação da cozinha...</p>
+        </div>
+    </div>
+
+    <!-- PAINEL DE CONTROLE SUPREMO INFERIOR -->
+    <div class="absolute bottom-0 w-full bg-[#020617]/95 backdrop-blur-lg p-6 rounded-t-3xl border-t-2 border-cyan-500 z-10 box-border">
+        <div class="flex gap-2 mb-4">
+            <input type="text" id="inputEndereco" class="flex-1 p-3 bg-[#0d0e12] border border-cyan-500 rounded-lg text-cyan-400 font-bold uppercase placeholder-cyan-800/40 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs" placeholder="[EMERGÊNCIA] DIGITE O ENDEREÇO DO CLIENTE...">
+            <button onclick="buscarEnderecoManual()" class="bg-cyan-500 hover:bg-cyan-600 text-black px-4 py-2 rounded-lg font-black uppercase transition-all duration-200"><i class="fas fa-search"></i></button>
+        </div>
+
+        <div class="flex justify-between items-center mb-4 border-b border-zinc-800 pb-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] terminal-text text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded">ID CARREGADO:</span>
+                    <span id="displayPedidoID" class="text-[11px] terminal-text text-white font-black">NENHUM</span>
+                </div>
+                <p id="entCliente" class="text-gold font-black text-lg uppercase mt-1">AGUARDANDO LIBERAÇÃO DA COZINHA...</p>
+                <p id="entEndereco" class="text-zinc-400 text-xs uppercase truncate max-w-xs">---</p>
+            </div>
+            <div id="statusGPS" class="text-[10px] terminal-text font-black text-red-500 uppercase border border-red-500/30 px-3 py-1 rounded bg-red-950/20">🔴 OFFLINE</div>
+        </div>
+
+        <div class="flex gap-2">
+            <button id="btnRota" onclick="alternarRastreamento()" class="flex-1 bg-gold hover:bg-yellow-500 text-black font-black py-4 rounded-xl shadow-[0_0_15px_rgba(253,224,113,0.3)] uppercase terminal-text text-sm transition-all duration-200">INICIAR ROTA</button>
+            <button onclick="finalizarCorridaCompleta()" class="bg-red-600 hover:bg-red-700 text-white font-black px-5 rounded-xl transition-all duration-200 shadow-lg" title="Finalizar Corrida"><i class="fas fa-check-double"></i> FINALIZAR</button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { databaseURL: "https://dony-burguers-default-rtdb.firebaseio.com" };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const LOJA_ID = 'LEOVARDIOS_burguer_2026';
+
+        let motoboySessao = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const salvo = localStorage.getItem('motoboy_sessao_jdp');
+            if (salvo) {
+                motoboySessao = JSON.parse(salvo);
+                document.getElementById('modalAuth').classList.add('hidden');
+                document.getElementById('labelNomeMotoboy').innerText = motoboySessao.nome;
+                document.getElementById('labelCidadeMotoboy').innerText = `CIDADE: ${motoboySessao.cidade || 'NÃO DEFINIDA'}`;
+            }
+        });
+
+        function mudarAbaAuth(aba) {
+            if (aba === 'login') {
+                document.getElementById('formLogin').classList.remove('hidden');
+                document.getElementById('formCadastro').classList.add('hidden');
+                document.getElementById('abaLoginBtn').className = "flex-1 py-2 text-xs font-black terminal-text text-cyan-400 border-b-2 border-cyan-500 uppercase";
+                document.getElementById('abaCadastroBtn').className = "flex-1 py-2 text-xs font-black terminal-text text-zinc-500 hover:text-white uppercase";
+            } else {
+                document.getElementById('formCadastro').classList.remove('hidden');
+                document.getElementById('formLogin').classList.add('hidden');
+                document.getElementById('abaCadastroBtn').className = "flex-1 py-2 text-xs font-black terminal-text text-gold border-b-2 border-gold uppercase";
+                document.getElementById('abaLoginBtn').className = "flex-1 py-2 text-xs font-black terminal-text text-zinc-500 hover:text-white uppercase";
+            }
+        }
+
+        async function realizarCadastro(e) {
+            e.preventDefault();
+            const nome = document.getElementById('cadNome').value.trim().toUpperCase();
+            const telefone = document.getElementById('cadTelefone').value.trim().replace(/\D/g, '');
+            const cidade = document.getElementById('cadCidade').value.trim().toUpperCase();
+            const senha = document.getElementById('cadSenha').value.trim();
+
+            if (!nome || !telefone || !cidade || !senha) return alert("Preencha todos os campos!");
+
+            const motoId = "MOTO_" + telefone;
+            const refMoto = db.ref(`lojas/${LOJA_ID}/equipe_motoboys/${motoId}`);
+
+            const snap = await refMoto.once('value');
+            if (snap.exists()) {
+                alert("Este telefone já está cadastrado!");
+                return;
+            }
+
+            const dadosMoto = { id: motoId, nome, telefone, cidade, senha, status: "ONLINE", criadoEm: Date.now() };
+            await refMoto.set(dadosMoto);
+
+            motoboySessao = dadosMoto;
+            localStorage.setItem('motoboy_sessao_jdp', JSON.stringify(dadosMoto));
+            
+            document.getElementById('modalAuth').classList.add('hidden');
+            document.getElementById('labelNomeMotoboy').innerText = nome;
+            document.getElementById('labelCidadeMotoboy').innerText = `CIDADE: ${cidade}`;
+            alert("Cadastro realizado com sucesso!");
+        }
+
+        async function realizarLogin(e) {
+            e.preventDefault();
+            const telefone = document.getElementById('loginTelefone').value.trim().replace(/\D/g, '');
+            const senha = document.getElementById('loginSenha').value.trim();
+
+            const motoId = "MOTO_" + telefone;
+            const refMoto = db.ref(`lojas/${LOJA_ID}/equipe_motoboys/${motoId}`);
+
+            const snap = await refMoto.once('value');
+            if (!snap.exists()) {
+                alert("Motoboy não encontrado com este telefone!");
+                return;
+            }
+
+            const dados = snap.val();
+            if (dados.senha !== senha) {
+                alert("Senha incorreta!");
+                return;
+            }
+
+            motoboySessao = dados;
+            localStorage.setItem('motoboy_sessao_jdp', JSON.stringify(dados));
+
+            document.getElementById('modalAuth').classList.add('hidden');
+            document.getElementById('labelNomeMotoboy').innerText = dados.nome;
+            document.getElementById('labelCidadeMotoboy').innerText = `CIDADE: ${dados.cidade || 'NÃO DEFINIDA'}`;
+        }
+
+        function deslogarMotoboy() {
+            if (!confirm("Deseja encerrar a sessão?")) return;
+            localStorage.removeItem('motoboy_sessao_jdp');
+            location.reload();
+        }
+
+        const iconeCliente = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        const iconeMotoboy = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([-2.9903, -60.0673], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        setTimeout(() => { map.invalidateSize(); }, 300);
+
+        let markerCliente = null, markerMotoboy = null, watchId = null, emRota = false;
+        let idPedidoAtual = "NENHUM";
+        let pedidosProntos = {}, pedidosCancelados = {};
+
+        function alternarPainelCorridas() {
+            document.getElementById('painelLateral').classList.toggle('-translate-x-full');
+        }
+
+        // =========================================================================
+        // 🛡️ O VIGIA DE PORTARIA BLINDADO COM FILTRAGEM POR CIDADE DO MOTOBOY
+        // =========================================================================
+        db.ref(`lojas/${LOJA_ID}`).on('value', snap => {
+            const data = snap.val() || {};
+            
+            const portaAPedidosProntos = data.pedido_pronto_entrega || {};
+            const relatorioCanceladosGerais = data.pedidos_cancelados || {};
+            const relatorioProducaoCancelada = data.producao_cancelada || {};
+
+            pedidosProntos = {};
+            const cidadeMotoboy = motoboySessao && motoboySessao.cidade ? motoboySessao.cidade.toUpperCase().trim() : "";
+            
+            Object.keys(portaAPedidosProntos).forEach(id => {
+                const p = portaAPedidosProntos[id];
+                const limpoId = id.replace("#", "").trim();
+                
+                const estaCancelado = 
+                    relatorioCanceladosGerais[limpoId] !== undefined || 
+                    relatorioCanceladosGerais[id] !== undefined || 
+                    relatorioCanceladosGerais["#" + limpoId] !== undefined ||
+                    relatorioProducaoCancelada[limpoId] !== undefined ||
+                    relatorioProducaoCancelada[id] !== undefined ||
+                    (p && ((p.status || "").toUpperCase().includes("CANCEL")));
+
+                if (!estaCancelado && p) {
+                    // VERIFICAÇÃO RIGOROSA DA CIDADE (Se o motoboy tiver cidade cadastrada, só exibe corridas da mesma cidade)
+                    const enderecoPedido = (p.endereco || "").toUpperCase();
+                    const cidadePedido = (p.cidade || "").toUpperCase();
+                    
+                    const compativelCidade = !cidadeMotoboy || enderecoPedido.includes(cidadeMotoboy) || cidadePedido.includes(cidadeMotoboy);
+
+                    if (compativelCidade) {
+                        pedidosProntos[id] = p;
+                    }
+                } else if (estaCancelado) {
+                    db.ref(`lojas/${LOJA_ID}/pedido_pronto_entrega/${id}`).remove();
+                }
+            });
+
+            const limpoAtual = idPedidoAtual.replace("#", "").trim();
+            if (idPedidoAtual !== "NENHUM" && (relatorioCanceladosGerais[limpoAtual] !== undefined || relatorioCanceladosGerais[idPedidoAtual] !== undefined || relatorioProducaoCancelada[limpoAtual] !== undefined)) {
+                alert(`🚨 [VIGIA] O pedido #${idPedidoAtual} foi cancelado! Removendo da tela.`);
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+                emRota = false;
+                idPedidoAtual = "NENHUM";
+                db.ref(`lojas/${LOJA_ID}/pedido_em_entrega`).remove();
+                if (markerCliente) { map.removeLayer(markerCliente); markerCliente = null; }
+                document.getElementById('displayPedidoID').innerText = "NENHUM";
+                document.getElementById('entCliente').innerText = "PEDIDO CANCELADO!";
+                document.getElementById('entEndereco').innerText = "---";
+            }
+
+            processarFilaEVisualizacaoGeral();
+        });
+
+        db.ref(`lojas/${LOJA_ID}/pedido_em_entrega`).on('value', async (snapshot) => {
+            const pedido = snapshot.val();
+            const limpoId = pedido && pedido.id ? pedido.id.replace("#", "").trim() : "";
+            
+            if (pedido && pedido.id && pedidosCancelados[limpoId] === undefined && pedidosCancelados[pedido.id] === undefined) {
+                idPedidoAtual = pedido.id;
+                document.getElementById('displayPedidoID').innerText = idPedidoAtual;
+                
+                const nomeCliente = pedido.cliente || pedido.cliente_nome || pedido.mesa || "CLIENTE S/N";
+                const enderecoCliente = pedido.endereco || "ENDEREÇO NÃO LOCALIZADO";
+
+                document.getElementById('entCliente').innerText = nomeCliente.toUpperCase();
+                document.getElementById('entEndereco').innerText = enderecoCliente.toUpperCase();
+
+                let lat = pedido.latDestino;
+                let lng = pedido.lngDestino;
+
+                const cidadeRef = motoboySessao && motoboySessao.cidade ? motoboySessao.cidade : "Manaus";
+
+                if ((!lat || !lng) && enderecoCliente.length > 3) {
+                    const coordsObj = await geocodificarLocalRigoroso(enderecoCliente, cidadeRef);
+                    if (coordsObj) { lat = coordsObj.lat; lng = coordsObj.lng; }
+                }
+
+                if (lat && lng) {
+                    if (markerCliente) map.removeLayer(markerCliente);
+                    markerCliente = L.marker([lat, lng], { icon: iconeCliente }).addTo(map)
+                        .bindPopup(`<b>DESTINO CLIENTE:</b><br>${nomeCliente}<br>${enderecoCliente}`).openPopup();
+                    if (!emRota) map.setView([lat, lng], 17);
+                }
+            } else {
+                if (!emRota) {
+                    idPedidoAtual = "NENHUM";
+                    document.getElementById('displayPedidoID').innerText = "NENHUM";
+                    document.getElementById('entCliente').innerText = "AGUARDANDO LIBERAÇÃO DA COZINHA...";
+                    document.getElementById('entEndereco').innerText = "---";
+                    if (markerCliente) { map.removeLayer(markerCliente); markerCliente = null; }
+                }
+            }
+        });
+
+        function processarFilaEVisualizacaoGeral() {
+            const container = document.getElementById('listaFilaGeral');
+            const badgeQtd = document.getElementById('badgeQtd');
+            const todosIds = Object.keys(pedidosProntos);
+
+            badgeQtd.innerText = todosIds.length;
+
+            if (todosIds.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 text-zinc-600 text-xs uppercase">Nenhuma corrida disponível para sua cidade</div>`;
+                return;
+            }
+
+            let html = "";
+            todosIds.forEach(id => {
+                const pronto = pedidosProntos[id];
+                let mesa = pronto?.cliente_nome || pronto?.mesa || "DELIVERY";
+                let total = pronto?.total || 0;
+                let end = pronto?.endereco || "Endereço não informado";
+
+                html += `
+                    <div class="p-3 bg-[#0f172a] border border-zinc-800 rounded-lg hover:border-cyan-500 transition-all flex justify-between items-center">
+                        <div class="flex-1 cursor-pointer" onclick="carregarPedidoProntoParaRota('${id}'); alternarPainelCorridas();">
+                            <div class="flex justify-between items-center mb-1 pr-2">
+                                <span class="text-[10px] terminal-text text-zinc-500">${id}</span>
+                                <span class="text-[9px] font-black px-2 py-0.5 rounded uppercase bg-cyan-500 text-black">DISPONÍVEL 🛡️</span>
+                            </div>
+                            <div class="text-xs font-black text-white uppercase truncate">${mesa}</div>
+                            <div class="text-[10px] text-zinc-400 mt-1 truncate">📍 ${end}</div>
+                            <div class="text-[10px] text-gold mt-1 font-bold">Total: R$ ${parseFloat(total).toFixed(2)}</div>
+                        </div>
+                        <button onclick="deletarPedidoEspecífico('${id}')" class="text-red-500 hover:text-red-400 p-2 text-sm" title="Apagar Pedido">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        async function carregarPedidoProntoParaRota(id) {
+            if (!motoboySessao) {
+                alert("Faça login antes de carregar um pedido!");
+                document.getElementById('modalAuth').classList.remove('hidden');
+                return;
+            }
+
+            const limpoId = id.replace("#", "").trim();
+            if (pedidosCancelados[limpoId] !== undefined || pedidosCancelados[id] !== undefined) {
+                return alert("[VIGIA] Este pedido foi cancelado e bloqueado!");
+            }
+
+            const pronto = pedidosProntos[id];
+            if (!pronto) return;
+
+            const clienteNome = pronto?.cliente_nome || pronto?.mesa || "CLIENTE S/N";
+            const address = pronto?.endereco || "Manaus, Amazonas, Brasil";
+            let lat = pronto?.latDestino;
+            let lng = pronto?.lngDestino;
+            const cidadeRef = motoboySessao.cidade || "Manaus";
+
+            if (!lat || !lng) {
+                const coordsObj = await geocodificarLocalRigoroso(address, cidadeRef);
+                if (coordsObj) { lat = coordsObj.lat; lng = coordsObj.lng; }
+                else { lat = -2.9903; lng = -60.0673; }
+            }
+
+            idPedidoAtual = id;
+
+            const dadosCorridaComMotoboy = {
+                id,
+                cliente: clienteNome,
+                endereco: address,
+                latDestino: lat,
+                lngDestino: lng,
+                motoboy_id: motoboySessao.id,
+                motoboy_nome: motoboySessao.nome,
+                motoboy_telefone: motoboySessao.telefone,
+                motoboy_cidade: motoboySessao.cidade,
+                timestamp: Date.now()
+            };
+
+            await db.ref(`lojas/${LOJA_ID}/pedido_em_entrega`).set(dadosCorridaComMotoboy);
+
+            await db.ref(`lojas/${LOJA_ID}/rastreio_ativo/${limpoId}`).update({
+                cliente_nome: clienteNome,
+                endereco: address,
+                latDestino: lat,
+                lngDestino: lng,
+                motoboy_nome: motoboySessao.nome,
+                motoboy_telefone: motoboySessao.telefone,
+                status: "SAIU_PARA_ENTREGA"
+            });
+        }
+
+        async function geocodificarLocalRigoroso(enderecoTexto, cidadeBase) {
+            if (!enderecoTexto) return null;
+            try {
+                const query = encodeURIComponent(`${enderecoTexto}, ${cidadeBase}, Amazonas, Brasil`);
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+                const json = await res.json();
+                if (json && json.length > 0) return { lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon) };
+            } catch(e) {}
+            return null;
+        }
+
+        async function alternarRastreamento() {
+            if (!emRota) {
+                if (idPedidoAtual === "NENHUM") return alert("SELECIONE UM PEDIDO LIBERADO ANTES DE INICIAR!");
+                const limpoAtual = idPedidoAtual.replace("#", "").trim();
+                if (pedidosCancelados[limpoAtual] !== undefined || pedidosCancelados[idPedidoAtual] !== undefined) {
+                    return alert("[VIGIA] Este pedido foi cancelado!");
+                }
+                if (!navigator.geolocation) return alert("Dispositivo sem suporte a GPS!");
+
+                emRota = true;
+                document.getElementById('btnRota').innerText = "EM ROTA...";
+                document.getElementById('statusGPS').innerText = "🟢 TRANSMITINDO";
+                document.getElementById('statusGPS').className = "text-[10px] terminal-text font-black text-green-400 uppercase border border-green-500/30 px-3 py-1 rounded bg-green-950/20";
+
+                db.ref(`lojas/${LOJA_ID}/rastreio_ativo/${limpoAtual}`).update({
+                    status: "em_rota",
+                    na_pista: true,
+                    motoboy_nome: motoboySessao ? motoboySessao.nome : "MOTOBOY"
+                });
+
+                watchId = navigator.geolocation.watchPosition(pos => {
+                    if (!emRota || idPedidoAtual === "NENHUM") return;
+                    const { latitude, longitude, heading } = pos.coords;
+
+                    db.ref(`lojas/${LOJA_ID}/motoboy_status`).set({ 
+                        latitude, longitude, bearing: heading || 0, online: true, 
+                        motoboy_nome: motoboySessao ? motoboySessao.nome : "MOTOBOY",
+                        motoboy_cidade: motoboySessao ? motoboySessao.cidade : "",
+                        timestamp: Date.now() 
+                    });
+
+                    db.ref(`lojas/${LOJA_ID}/rastreio_ativo/${limpoAtual}`).update({ latMotoboy: latitude, lngMotoboy: longitude });
+
+                    if (markerMotoboy) map.removeLayer(markerMotoboy);
+                    markerMotoboy = L.marker([latitude, longitude], { icon: iconeMotoboy }).addTo(map)
+                        .bindPopup(`<b>${motoboySessao ? motoboySessao.nome : 'MOTOBOY'}</b>`).openPopup();
+
+                }, (err) => { alert("Erro GPS: " + err.message); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+            } else {
+                alert("A rota já está em andamento.");
+            }
+        }
+
+        async function deletarPedidoEspecífico(id) {
+            if (!confirm(`Deseja apagar o pedido #${id}?`)) return;
+            const limpoId = id.replace("#", "").trim();
+            const updates = {};
+            updates[`lojas/${LOJA_ID}/pedido_pronto_entrega/${limpoId}`] = null;
+            updates[`lojas/${LOJA_ID}/rastreio_ativo/${limpoId}`] = null;
+            if (idPedidoAtual === id || idPedidoAtual.replace("#","").trim() === limpoId) {
+                updates[`lojas/${LOJA_ID}/pedido_em_entrega`] = null;
+                idPedidoAtual = "NENHUM";
+            }
+            await db.ref().update(updates);
+        }
+
+        async function limparTodosFantasmas() {
+            if (!confirm("Deseja LIMPAR os pedidos da tela do motoboy?")) return;
+            const updates = {};
+            updates[`lojas/${LOJA_ID}/pedido_pronto_entrega`] = null;
+            updates[`lojas/${LOJA_ID}/rastreio_ativo`] = null;
+            updates[`lojas/${LOJA_ID}/pedido_em_entrega`] = null;
+            await db.ref().update(updates);
+            location.reload();
+        }
+
+        async function finalizarCorridaCompleta() {
+            if (idPedidoAtual === "NENHUM") return alert("NENHUM PEDIDO ATIVO PARA FINALIZAR!");
+            if (!confirm(`Deseja realmente finalizar o pedido #${idPedidoAtual}?`)) return;
+
+            if(watchId) navigator.geolocation.clearWatch(watchId);
+            emRota = false;
+            
+            const pedidoId = idPedidoAtual;
+            const limpoId = pedidoId.replace("#", "").trim();
+            
+            const finalUpdates = {};
+            finalUpdates[`lojas/${LOJA_ID}/pedidos_concluidos/${limpoId}`] = { 
+                id: pedidoId, 
+                status: "CONCLUIDO", 
+                motoboy_nome: motoboySessao ? motoboySessao.nome : "MOTOBOY",
+                finalizado_em: firebase.database.ServerValue.TIMESTAMP 
+            };
+            finalUpdates[`lojas/${LOJA_ID}/pedido_pronto_entrega/${limpoId}`] = null;
+            finalUpdates[`lojas/${LOJA_ID}/rastreio_ativo/${limpoId}`] = null;
+            finalUpdates[`lojas/${LOJA_ID}/pedido_em_entrega`] = null;
+
+            await db.ref().update(finalUpdates);
+            alert("CORRIDA FINALIZADA COM SUCESSO!");
+            location.reload();
+        }
+
+        async function buscarEnderecoManual() {
+            const input = document.getElementById('inputEndereco');
+            const end = input.value.trim();
+            if (!end) return alert("DIGITE UM ENDEREÇO VÁLIDO!");
+
+            const cidadeRef = motoboySessao && motoboySessao.cidade ? motoboySessao.cidade : "Manaus";
+            const coords = await geocodificarLocalRigoroso(end, cidadeRef);
+            if (coords) {
+                map.setView([coords.lat, coords.lng], 17);
+                if (markerCliente) map.removeLayer(markerCliente);
+                markerCliente = L.marker([coords.lat, coords.lng], { icon: iconeCliente }).addTo(map)
+                    .bindPopup(`<b>DESTINO MANUAL:</b><br>${end}`).openPopup();
+            } else {
+                alert(`ENDEREÇO NÃO LOCALIZADO EM ${cidadeRef}!`);
+            }
+        }
+    </script>
+</body>
+</html>
